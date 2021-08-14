@@ -100,8 +100,9 @@ def main():
     args = parser.parse_args()
 
     args.save_path = save_path = args.pretrained.split('checkpoint')[0].replace('stage1', 'stage2')
+    print(args.save_path, save_path)
     if not os.path.exists(save_path):
-        os.makedirs(save_path)
+        os.makedirs(save_path, exist_ok=True)
     args.logger_file = os.path.join(save_path, 'log_train.txt')
     handlers = [logging.FileHandler(args.logger_file, mode='w'),
                 logging.StreamHandler()]

@@ -112,9 +112,9 @@ parser.add_argument('--fix-pred-lr', action='store_true',
 def main():
     args = parser.parse_args()
 
-    args.save_path = save_path = os.path.join(
+    args.save_path = save_path = os.path.join(args.save_path,
         '_'.join([
-        args.save_path, args.dataset, (str)(args.imb_ratio), (str)(args.batch_size), (str)(args.epochs)
+        args.dataset, (str)(args.imb_ratio), (str)(args.batch_size), (str)(args.epochs)
     ]), 'stage1')
     if not os.path.exists(save_path):
         os.makedirs(save_path)
