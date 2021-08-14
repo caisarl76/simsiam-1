@@ -90,6 +90,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 # additional configs:
 parser.add_argument('--pretrained', default='', type=str,
                     help='path to simsiam pretrained checkpoint')
+parser.add_argument('--supervised', default=False, type=bool,
+                    help='choose weather run sup learning')
 parser.add_argument('--lars', action='store_true',
                     help='Use LARS')
 
@@ -98,8 +100,11 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
-
-    args.save_path = save_path = args.pretrained.split('checkpoint')[0].replace('stage1', 'stage2')
+    if args.supervised:
+        stage2_fol = 'super'
+    else:
+        stage2_fol = 'upsup'
+    args.save_path = save_path = args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol)
     print(args.save_path, save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
@@ -191,9 +196,10 @@ def main_worker(gpu, ngpus_per_node, args):
         warnings.warn("Wrong model name: ", args.model)
 
     # freeze all layers but the last linear
-    for name, param in model.named_parameters():
-        if name not in ['linear.weight', 'linear.bias']:
-            param.requires_grad = False
+    if not args.supervised:
+        for name, param in model.named_parameters():
+            if name not in ['linear.weight', 'linear.bias']:
+                param.requires_grad = False
     # init the linear layer
     model.linear.weight.data.normal_(mean=0.0, std=0.01)
     model.linear.bias.data.zero_()
