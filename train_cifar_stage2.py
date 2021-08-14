@@ -101,8 +101,10 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
     if args.supervised:
+        print('train with supervised')
         stage2_fol = 'super'
     else:
+        print('train with supervised')
         stage2_fol = 'upsup'
     args.save_path = save_path = args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol)
     print(args.save_path, save_path)
