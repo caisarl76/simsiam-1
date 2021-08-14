@@ -320,7 +320,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best=is_best, file_dir=args.save_path)
-            if epoch == args.start_epoch:
+            if epoch == args.start_epoch and not args.supervised:
                 sanity_check(model.state_dict(), args.pretrained)
         logging.info("Epoch: [{0}]\t"
                              "Loss {loss})\t"
