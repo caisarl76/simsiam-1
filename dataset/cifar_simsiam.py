@@ -28,6 +28,14 @@ augmentation = [
     transforms.ToTensor(),
     normalize
     ]
+
+transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    normalize,
+])
+
 transform_test = transforms.Compose([
     transforms.ToTensor(),
     normalize
@@ -46,6 +54,7 @@ class IMBALANCECIFAR10(torchvision.datasets.CIFAR10):
             self.img_num_list = self.get_img_num_per_cls(self.cls_num, imb_type, imbalance_ratio,
                                                          reverse=reverse)
             self.gen_imbalanced_data(self.img_num_list)
+            self.transform = transform_train
             self.loader = TwoCropsTransform(transforms.Compose(augmentation))
         else:
             if test_imb_ratio:
@@ -129,8 +138,6 @@ class IMBALANCECIFAR10(torchvision.datasets.CIFAR10):
                 img = self.transform(img)
             if self.target_transform is not None:
                 label = self.target_transform(label)
-
-            # return img, label, index
             return img, label
 
     def __len__(self):
