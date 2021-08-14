@@ -59,6 +59,7 @@ class SimSiam(nn.Module):
         p2 = self.predictor(z2) # NxC
 
         return p1, p2, z1.detach(), z2.detach()
+<<<<<<< HEAD
 
 class SimSiam_cifar(nn.Module):
     """
@@ -129,3 +130,5 @@ if __name__ == "__main__":
     print(model)
     data = torch.randn([16, 3, 32, 32])
     p1, p2, z1, z2 = model(data, data)
+=======
+>>>>>>> a7bc1772896d0dad0806c51f0bb6f3b16d290468
