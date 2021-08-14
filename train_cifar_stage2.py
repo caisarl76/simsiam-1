@@ -310,18 +310,18 @@ def main_worker(gpu, ngpus_per_node, args):
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
-
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'arch': args.model,
-                'state_dict': model.state_dict(),
-                'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
-            }, is_best=is_best, file_dir=args.save_path)
-            if epoch == args.start_epoch and not args.supervised:
-                sanity_check(model.state_dict(), args.pretrained)
+        if epoch % 10 == 0:
+            if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                    and args.rank % ngpus_per_node == 0):
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.model,
+                    'state_dict': model.state_dict(),
+                    'best_acc1': best_acc1,
+                    'optimizer' : optimizer.state_dict(),
+                }, is_best=is_best, file_dir=args.save_path)
+                if epoch == args.start_epoch and not args.supervised:
+                    sanity_check(model.state_dict(), args.pretrained)
         logging.info("Epoch: [{0}]\t"
                              "Loss {loss})\t"
                              "Prec@1 {top1:.3f})\t".format(
