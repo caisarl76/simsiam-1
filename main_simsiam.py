@@ -266,11 +266,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-<<<<<<< HEAD
             }, is_best=False, filename='runs/checkpoint_{:04d}.pth.tar'.format(epoch))
-=======
-            }, is_best=False, filename='checkpoint_{:04d}.pth.tar'.format(epoch))
->>>>>>> a7bc1772896d0dad0806c51f0bb6f3b16d290468
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -313,17 +309,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             progress.display(i)
 
 
-<<<<<<< HEAD
 def save_checkpoint(state, is_best, filename='runs/checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'runs/model_best.pth.tar')
-=======
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
->>>>>>> a7bc1772896d0dad0806c51f0bb6f3b16d290468
 
 
 class AverageMeter(object):
