@@ -265,9 +265,12 @@ def main_worker(gpu, ngpus_per_node, args):
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
-    # optimize only the linear classifier
-    parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
-    assert len(parameters) == 2  # fc.weight, fc.bias
+    if args.supervised:
+        parameters = model.parameters()
+    else:
+        # optimize only the linear classifier
+        parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
+        assert len(parameters) == 2  # fc.weight, fc.bias
 
     optimizer = torch.optim.SGD(parameters, init_lr,
                                 momentum=args.momentum,
