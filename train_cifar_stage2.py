@@ -45,7 +45,7 @@ parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
 parser.add_argument('--model', metavar='ARCH', default='resnet32')
-parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
