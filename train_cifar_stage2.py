@@ -99,9 +99,7 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
 
-    args.save_path = save_path = '_'.join([
-        args.save_path, args.dataset, (str)(args.imb_ratio), (str)(args.batch_size), (str)(args.epochs)
-    ])
+    args.save_path = save_path = args.pretrained.split('checkpoint')[0].replace('stage1', 'stage2')
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.logger_file = os.path.join(save_path, 'log_train.txt')
