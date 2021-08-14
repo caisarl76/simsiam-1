@@ -183,8 +183,8 @@ def resnet44():
     return ResNet_s(BasicBlock, [7, 7, 7])
 
 
-def resnet56():
-    return ResNet_s(BasicBlock, [9, 9, 9])
+def resnet56(num_classes=10):
+    return ResNet_s(BasicBlock, [9, 9, 9], num_classes=num_classes)
 
 
 def resnet110():

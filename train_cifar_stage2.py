@@ -29,7 +29,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
-from simsiam.builder import simsiam_resnet32, simsiam_resnet56
+from simsiam.resnet_cifar import resnet32, resnet56
 
 val_transform = transforms.Compose([
     transforms.ToTensor(),
@@ -167,7 +167,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
         torch.distributed.barrier()
     # create model
-    print("=> creating model '{}'".format(args.arch))
+    print("=> creating model '{}'".format(args.model))
 
     if args.dataset == 'cifar100_lt':
         train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
@@ -183,19 +183,19 @@ def main_worker(gpu, ngpus_per_node, args):
         warnings.warn("Wrong dataset name: ", args.dataset)
 
     if args.model == 'resnet32':
-        model = simsiam_resnet32(num_classes=num_classes)
+        model = resnet32(num_classes=num_classes)
     elif args.model == 'resnet56':
-        model = simsiam_resnet56(num_classes=num_classes)
+        model = resnet56(num_classes=num_classes)
     else:
         warnings.warn("Wrong model name: ", args.model)
 
-    # freeze all layers but the last fc
+    # freeze all layers but the last linear
     for name, param in model.named_parameters():
-        if name not in ['fc.weight', 'fc.bias']:
+        if name not in ['linear.weight', 'linear.bias']:
             param.requires_grad = False
-    # init the fc layer
-    model.fc.weight.data.normal_(mean=0.0, std=0.01)
-    model.fc.bias.data.zero_()
+    # init the linear layer
+    model.linear.weight.data.normal_(mean=0.0, std=0.01)
+    model.linear.bias.data.zero_()
 
     # load from pre-trained, before DistributedDataParallel constructor
     if args.pretrained:
@@ -207,7 +207,7 @@ def main_worker(gpu, ngpus_per_node, args):
             state_dict = checkpoint['state_dict']
             for k in list(state_dict.keys()):
                 # retain only encoder up to before the embedding layer
-                if k.startswith('module.encoder') and not k.startswith('module.encoder.fc'):
+                if k.startswith('module.encoder') and not k.startswith('module.encoder.linear'):
                     # remove prefix
                     state_dict[k[len("module.encoder."):]] = state_dict[k]
                 # delete renamed or unused k
@@ -215,7 +215,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
-            assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
+            assert set(msg.missing_keys) == {"linear.weight", "linear.bias"}
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
         else:
@@ -265,8 +265,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                 weight_decay=args.weight_decay)
     if args.lars:
         print("=> use LARS optimizer.")
-        from apex.parallel.LARC import LARC
-        optimizer = LARC(optimizer=optimizer, trust_coefficient=.001, clip=False)
+        # from apex.parallel.LARC import LARC
+        # optimizer = LARC(optimizer=optimizer, trust_coefficient=.001, clip=False)
 
     cudnn.benchmark = True
 
@@ -303,7 +303,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
-                'arch': args.arch,
+                'arch': args.model,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
@@ -311,8 +311,8 @@ def main_worker(gpu, ngpus_per_node, args):
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained)
         logging.info("Epoch: [{0}]\t"
-                             "Loss {loss.val:.3f} ({loss.avg:.3f})\t"
-                             "Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t".format(
+                             "Loss {loss})\t"
+                             "Prec@1 {top1:.3f})\t".format(
                     epoch,
                     loss=loss,
                     top1=acc1)
@@ -431,7 +431,7 @@ def sanity_check(state_dict, pretrained_weights):
 
     for k in list(state_dict.keys()):
         # only ignore fc layer
-        if 'fc.weight' in k or 'fc.bias' in k:
+        if 'linear.weight' in k or 'linear.bias' in k:
             continue
 
         # name in pretrained model
