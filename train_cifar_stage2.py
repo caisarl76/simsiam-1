@@ -322,13 +322,14 @@ def main_worker(gpu, ngpus_per_node, args):
                 }, is_best=is_best, file_dir=args.save_path)
                 if epoch == args.start_epoch and not args.supervised:
                     sanity_check(model.state_dict(), args.pretrained)
+
         logging.info("Epoch: [{0}]\t"
-                             "Loss {loss})\t"
-                             "Prec@1 {top1:.3f})\t".format(
-                    epoch,
-                    loss=loss,
-                    top1=acc1)
-                )
+                     "Loss {loss})\t"
+                     "Prec@1 {top1:.3f})\t".format(
+            epoch,
+            loss=loss,
+            top1=acc1)
+        )
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')

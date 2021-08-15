@@ -270,6 +270,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 }, is_best=False, filename='runs/checkpoint_{:04d}.pth.tar'.format(epoch))
 
 
+
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')

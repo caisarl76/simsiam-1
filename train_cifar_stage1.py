@@ -277,6 +277,13 @@ def main_worker(gpu, ngpus_per_node, args):
                     'optimizer': optimizer.state_dict(),
                 }, is_best=False, filename=os.path.join(args.save_path, 'checkpoint_{:04d}.pth.tar'.format(epoch)))
 
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.model,
+                    'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }, is_best=False, filename=os.path.join(args.save_path, 'checkpoint_last.pth.tar'.format(epoch)))
+
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
