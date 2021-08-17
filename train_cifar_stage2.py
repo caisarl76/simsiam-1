@@ -333,6 +333,7 @@ def main_worker(gpu, ngpus_per_node, args):
             loss=loss,
             top1=acc1)
         )
+    logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
