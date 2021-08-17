@@ -200,7 +200,7 @@ def main_worker(gpu, ngpus_per_node, args):
         warnings.warn("Wrong model name: ", args.model)
 
     # freeze all layers but the last linear
-    if not args.supervised:
+    if not args.supervised == 1:
         for name, param in model.named_parameters():
             if name not in ['linear.weight', 'linear.bias']:
                 param.requires_grad = False
