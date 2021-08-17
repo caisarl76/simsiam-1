@@ -90,7 +90,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 # additional configs:
 parser.add_argument('--pretrained', default='', type=str,
                     help='path to simsiam pretrained checkpoint')
-parser.add_argument('--supervised', default=False, type=bool,
+parser.add_argument('--supervised', default=1, type=int,
                     help='choose weather run sup learning')
 parser.add_argument('--lars', action='store_true',
                     help='Use LARS')
@@ -100,7 +100,7 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
-    if args.supervised:
+    if args.supervised == 1:
         print('train with supervised')
         stage2_fol = 'super'
     else:
