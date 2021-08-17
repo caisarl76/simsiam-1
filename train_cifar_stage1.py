@@ -24,6 +24,7 @@ import torch.optim
 import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
+import torchvision.datasets
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
@@ -31,6 +32,7 @@ import torchvision.models as models
 import simsiam.loader
 import simsiam.builder
 from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
+from dataset.cifar10_pair import CIFAR10Pair
 from simsiam.builder import simsiam_resnet32, simsiam_resnet56
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -48,6 +50,17 @@ augmentation = [
     transforms.ToTensor(),
     normalize
 ]
+
+augmentation_cifar = [
+    transforms.RandomResizedCrop(32, scale=(0.2, 1.)),
+    transforms.RandomApply([
+        transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+    ], p=0.8),
+    transforms.RandomGrayscale(p=0.2),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    normalize
+    ]
 
 parser = argparse.ArgumentParser(description='PyTorch simsiam-cifar Training')
 parser.add_argument('--data-dir', default='./data', type=str,
@@ -111,11 +124,17 @@ parser.add_argument('--fix-pred-lr', action='store_true',
 
 def main():
     args = parser.parse_args()
+    if 'lt' not in args.dataset:
+        args.save_path = save_path = os.path.join(args.save_path,
+                                                  '_'.join([
+                                                      args.dataset, (str)(args.batch_size),(str)(args.epochs)
+                                                  ]), 'stage1')
+    else:
+        args.save_path = save_path = os.path.join(args.save_path,
+            '_'.join([
+            args.dataset, (str)(args.imb_ratio), (str)(args.batch_size), (str)(args.epochs)
+        ]), 'stage1')
 
-    args.save_path = save_path = os.path.join(args.save_path,
-        '_'.join([
-        args.dataset, (str)(args.imb_ratio), (str)(args.batch_size), (str)(args.epochs)
-    ]), 'stage1')
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.logger_file = os.path.join(save_path, 'log_train.txt')
@@ -190,15 +209,28 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
                                           simsiam=True)
         num_classes = 10
+    elif args.dataset == 'cifar10':
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(32, scale=(0.2, 1.)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])])
+
+        train_dataset = CIFAR10Pair(root='data', train=True, transform=train_transform, download=True)
+        num_classes = 10
     else:
         warnings.warn("Wrong dataset name: ", args.dataset)
-
 
 
     if args.model == 'resnet32':
         model = simsiam_resnet32(num_classes=num_classes)
     elif args.model == 'resnet56':
         model = simsiam_resnet56(num_classes=num_classes)
+    elif args.model == 'resnet18':
+        from torchvision.models import resnet18
+        model = simsiam.builder.SimSiam(base_encoder=resnet18, dim=2018, pred_dim=128)
     else:
         warnings.warn("Wrong model name: ", args.model)
 
@@ -235,7 +267,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
-
+    logging.info("=> creating model '{}'".format(args.model))
     print(model)  # print model after SyncBatchNorm
 
     if args.distributed:
@@ -322,6 +354,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+    logging.info("Epoch: [{0}]\t"
+                 "Loss {loss})\t".format(
+        epoch,
+        loss=losses.avg,))
 
 
 def save_checkpoint(state, is_best, filename='runs/checkpoint.pth.tar'):
