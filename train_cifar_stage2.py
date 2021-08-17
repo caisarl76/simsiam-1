@@ -235,7 +235,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # infer learning rate before changing batch size
     init_lr = args.lr * args.batch_size / 256
-    return
+
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
         # should always set the single device scope, otherwise,
@@ -333,6 +333,7 @@ def main_worker(gpu, ngpus_per_node, args):
             loss=loss,
             top1=acc1)
         )
+        break
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
