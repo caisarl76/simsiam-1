@@ -68,6 +68,7 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
                          'using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial (base) learning rate', dest='lr')
+parser.add_argument('--lr_sche', default='step', type=str)
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--wd', '--weight-decay', default=0., type=float,
@@ -554,10 +555,24 @@ class ProgressMeter(object):
 
 
 def adjust_learning_rate(optimizer, init_lr, epoch, args):
+    if args.lr_sche == 'cos':
+        lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+    else:
+        epoch = epoch + 1
+        if epoch <= 5:
+            lr = init_lr * epoch / 5
+        elif epoch > 180:
+            lr = init_lr * 0.01
+        elif epoch > 160:
+            lr = init_lr * 0.1
+        else:
+            lr = init_lr
+
+
     """Decay the learning rate based on schedule"""
-    cur_lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+
     for param_group in optimizer.param_groups:
-        param_group['lr'] = cur_lr
+        param_group['lr'] = lr
 
 
 def accuracy(output, target, topk=(1,)):
