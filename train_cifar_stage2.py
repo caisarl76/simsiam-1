@@ -349,7 +349,7 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, init_lr, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, epoch, args, writer)
 
         # evaluate on validation set
         acc1, loss = validate(val_loader, model, criterion, args)
@@ -382,7 +382,7 @@ def main_worker(gpu, ngpus_per_node, args):
     logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
     writer.close()
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -435,6 +435,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+    writer.add_scalar('train loss', losses.avg, epoch)
+    writer.add_scalar('train acc', top1.avg, epoch)
 
 def validate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f')
