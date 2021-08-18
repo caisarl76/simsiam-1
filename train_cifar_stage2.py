@@ -414,6 +414,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer):
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
         target = target.cuda(args.gpu, non_blocking=True)
+        optimizer.zero_grad()
 
         # compute output
         output = model(images)
@@ -426,7 +427,6 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer):
         top5.update(acc5[0], images.size(0))
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
