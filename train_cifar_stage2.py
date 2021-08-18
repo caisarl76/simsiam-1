@@ -14,6 +14,7 @@ import shutil
 import time
 import warnings
 import logging
+import json
 
 import torch
 import torch.nn as nn
@@ -51,6 +52,7 @@ parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
 parser.add_argument('--model', metavar='ARCH', default='resnet32')
+parser.add_argument('--loss_type', type=str, default='CE')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -96,7 +98,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 # additional configs:
 parser.add_argument('--pretrained', default='', type=str,
                     help='path to simsiam pretrained checkpoint')
-parser.add_argument('--supervised', default=1, type=int,
+parser.add_argument('--supervised', default=0, type=int,
                     help='choose weather run sup learning')
 parser.add_argument('--lars', action='store_true',
                     help='Use LARS')
@@ -113,10 +115,11 @@ def main():
         print('train with supervised')
         stage2_fol = 'unsup'
     args.save_path = save_path = os.path.join(args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol),
-                                              ((str)(args.epochs) + '_' + (str)(args.lr)))
+                                              args.loss_type, ((str)(args.epochs) + '_' + (str)(args.lr)))
     print(args.save_path, save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
+
     args.logger_file = os.path.join(save_path, 'log_train.txt')
     handlers = [logging.FileHandler(args.logger_file, mode='w'),
                 logging.StreamHandler()]
@@ -125,6 +128,8 @@ def main():
                         format='%(asctime)s:%(message)s',
                         handlers=handlers)
     logging.info('start training stage2: {}'.format(stage2_fol))
+    with open(os.path.join(save_path, 'args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -186,18 +191,22 @@ def main_worker(gpu, ngpus_per_node, args):
     print("=> creating model '{}'".format(args.model))
     logging.info("=> creating model '{}'".format(args.model))
 
+    cls_num_list = None
     if args.dataset == 'cifar100_lt':
         train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
                                           simsiam=False)
+        cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = torchvision.datasets.CIFAR100(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 100
     elif args.dataset == 'cifar10_lt':
         train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
                                          simsiam=False)
+        cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 10
     elif args.dataset == 'cifar10':
         train_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=True, transform=train_transform)
+        cls_num_list = [5000]*10
         val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 10
     else:
@@ -293,7 +302,11 @@ def main_worker(gpu, ngpus_per_node, args):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    if args.loss_type == 'CE':
+        criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    elif args.loss_type == 'balacned':
+        from losses.BalancedSoftmaxLoss import create_loss
+        criterion = create_loss(cls_num_list=cls_num_list)
 
     if args.supervised:
         parameters = model.parameters()
