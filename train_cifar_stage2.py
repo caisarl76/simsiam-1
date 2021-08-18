@@ -112,7 +112,8 @@ def main():
     else:
         print('train with supervised')
         stage2_fol = 'unsup'
-    args.save_path = save_path = os.path.join(args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol), str(args.epochs))
+    args.save_path = save_path = os.path.join(args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol),
+                                              ((str)(args.epochs) + '_' + (str)(args.lr)))
     print(args.save_path, save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
@@ -215,7 +216,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # freeze all layers but the last linear
     if not args.supervised == 1:
         for name, param in model.named_parameters():
-            if name not in ['linear.weight', 'linear.bias']:
+            if name not in ['linear.weight', 'linear.bias', 'fc.weight', 'fc.bias']:
                 param.requires_grad = False
     # init the linear layer
     if args.model == 'resnet18':
@@ -349,8 +350,8 @@ def main_worker(gpu, ngpus_per_node, args):
                     'best_acc1': best_acc1,
                     'optimizer' : optimizer.state_dict(),
                 }, is_best=is_best, file_dir=args.save_path)
-                if epoch == args.start_epoch and not args.supervised:
-                    sanity_check(model.state_dict(), args.pretrained)
+                # if epoch == args.start_epoch and not args.supervised:
+                #     sanity_check(model.state_dict(), args.pretrained)
 
         logging.info("Epoch: [{0}]\t"
                      "Loss {loss})\t"
@@ -482,8 +483,7 @@ def sanity_check(state_dict, pretrained_weights):
             continue
 
         # name in pretrained model
-        k_pre = 'module.encoder.' + k[len('module.'):] \
-            if k.startswith('module.') else 'module.encoder.' + k
+        k_pre = 'encoder.' + k
 
         assert ((state_dict[k].cpu() == state_dict_pre[k_pre]).all()), \
             '{} is changed in linear classifier training.'.format(k)

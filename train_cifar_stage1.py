@@ -228,9 +228,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model = simsiam_resnet32(num_classes=num_classes)
     elif args.model == 'resnet56':
         model = simsiam_resnet56(num_classes=num_classes)
-    elif args.model == 'resnet18':
-        from torchvision.models import resnet18
-        model = simsiam.builder.SimSiam(base_encoder=resnet18, dim=2018, pred_dim=128)
+
     else:
         warnings.warn("Wrong model name: ", args.model)
 
