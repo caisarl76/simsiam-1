@@ -31,6 +31,12 @@ import torchvision.models as models
 from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
 from simsiam.resnet_cifar import resnet32, resnet56
 
+train_transform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
 val_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
@@ -189,6 +195,10 @@ def main_worker(gpu, ngpus_per_node, args):
                                          simsiam=False)
         val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 10
+    elif args.dataset == 'cifar10':
+        train_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=True, transform=train_transform)
+        val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
+        num_classes = 10
     else:
         warnings.warn("Wrong dataset name: ", args.dataset)
 
@@ -196,6 +206,9 @@ def main_worker(gpu, ngpus_per_node, args):
         model = resnet32(num_classes=num_classes)
     elif args.model == 'resnet56':
         model = resnet56(num_classes=num_classes)
+    elif args.model == 'resnet18':
+        from torchvision.models import resnet18
+        model = resnet18(pretrained=False, num_classes=num_classes)
     else:
         warnings.warn("Wrong model name: ", args.model)
 
@@ -205,8 +218,12 @@ def main_worker(gpu, ngpus_per_node, args):
             if name not in ['linear.weight', 'linear.bias']:
                 param.requires_grad = False
     # init the linear layer
-    model.linear.weight.data.normal_(mean=0.0, std=0.01)
-    model.linear.bias.data.zero_()
+    if args.model == 'resnet18':
+        model.fc.weight.data.normal_(mean=0.0, std=0.01)
+        model.fc.bias.data.zero_()
+    else:
+        model.linear.weight.data.normal_(mean=0.0, std=0.01)
+        model.linear.bias.data.zero_()
 
     # load from pre-trained, before DistributedDataParallel constructor
     if args.pretrained:
@@ -220,16 +237,23 @@ def main_worker(gpu, ngpus_per_node, args):
             for k in list(state_dict.keys()):
                 # retain only encoder up to before the embedding layer
                 # if k.startswith('module.encoder') and not k.startswith('module.encoder.linear'):
-                if k.startswith('encoder') and not k.startswith('encoder.linear'):
-                    # remove prefix
-                    # state_dict[k[len("module.encoder."):]] = state_dict[k]
-                    state_dict[k[len("encoder."):]] = state_dict[k]
+                if args.model =='resnet18':
+                    if k.startswith('encoder') and not k.startswith('encoder.fc'):
+                        state_dict[k[len("encoder."):]] = state_dict[k]
+                else:
+                    if k.startswith('encoder') and not k.startswith('encoder.linear'):
+                        # remove prefix
+                        # state_dict[k[len("module.encoder."):]] = state_dict[k]
+                        state_dict[k[len("encoder."):]] = state_dict[k]
                 # delete renamed or unused k
                 del state_dict[k]
 
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
-            assert set(msg.missing_keys) == {"linear.weight", "linear.bias"}
+            if args.model == 'resnet18':
+                assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
+            else:
+                assert set(msg.missing_keys) == {"linear.weight", "linear.bias"}
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
         else:
