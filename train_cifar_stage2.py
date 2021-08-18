@@ -25,6 +25,8 @@ import torch.optim
 import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
+from torch.utils.tensorboard import SummaryWriter
+
 import torchvision.datasets
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
@@ -128,6 +130,7 @@ def main():
                         format='%(asctime)s:%(message)s',
                         handlers=handlers)
     logging.info('start training stage2: {}'.format(stage2_fol))
+
     with open(os.path.join(save_path, 'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
@@ -190,6 +193,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # create model
     print("=> creating model '{}'".format(args.model))
     logging.info("=> creating model '{}'".format(args.model))
+    writer = SummaryWriter(os.path.join(args.save_path, 'logs'))
 
     cls_num_list = None
     if args.dataset == 'cifar100_lt':
@@ -373,8 +377,10 @@ def main_worker(gpu, ngpus_per_node, args):
             loss=loss,
             top1=acc1)
         )
+        writer.add_scalar('val loss', loss, epoch)
+        writer.add_scalar('val acc', acc1, epoch)
     logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
-
+    writer.close()
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -394,7 +400,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     BatchNorm in train mode may revise running mean/std (even if it receives
     no gradient), which are part of the model parameters too.
     """
-    if args.supervised==1:
+    if args.supervised == 1:
         model.train()
     else:
         model.eval()
