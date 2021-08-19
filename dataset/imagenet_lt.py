@@ -33,7 +33,7 @@ class LT_Dataset(Dataset):
         self.targets = []
         self.transform = transform
         self.unsup = unsup
-        self.loader = simsiam.loader.TwoCropsTransform(base_transform=augmentation)
+        self.loader = simsiam.loader.TwoCropsTransform(base_transform=transforms.Compose(augmentation))
         with open(txt) as f:
             for line in f:
                 self.img_path.append(os.path.join(root, line.split()[0]))
