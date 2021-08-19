@@ -121,8 +121,8 @@ class ImageNet_LT(object):
             normalize,
         ])
 
-        train_txt = "./ImageNet_LT_train.txt"
-        eval_txt = "./ImageNet_LT_test.txt"
+        train_txt = os.path.join(root, './ImageNet_LT_train.txt')
+        eval_txt = os.path.join(root, './ImageNet_LT_test.txt')
 
         train_dataset = LT_Dataset(root, train_txt, transform=transform_train, unsup=unsup)
         eval_dataset = LT_Dataset_Eval(root, eval_txt, transform=transform_test, class_map=train_dataset.class_map)
