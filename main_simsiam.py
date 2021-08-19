@@ -37,7 +37,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data_path', metavar='DIR', help='path to dataset')
-parser.add_argument('--dataset', default='imagenet', type=str,help='dataset type to use')
+parser.add_argument('--dataset', default='imagenet', type=str, help='dataset type to use')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -241,7 +241,8 @@ def main_worker(gpu, ngpus_per_node, args):
         normalize
     ]
     if args.dataset == 'imagenet_lt':
-        dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers)
+        dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers,
+                              unsup=True)
         train_loader = dataset.train_instance
         train_sampler = dataset.dist_sampler
     else:
