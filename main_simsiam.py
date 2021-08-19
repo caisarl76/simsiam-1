@@ -243,6 +243,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.dataset == 'imagenet_lt':
         dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers)
         train_loader = dataset.train_instance
+        train_sampler = dataset.dist_sampler
     else:
         train_dataset = datasets.ImageFolder(
             traindir,
