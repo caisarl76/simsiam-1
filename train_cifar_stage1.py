@@ -127,7 +127,7 @@ def main():
     if 'lt' not in args.dataset:
         args.save_path = save_path = os.path.join(args.save_path,
                                                   '_'.join([
-                                                      args.dataset, (str)(args.batch_size),(str)(args.epochs)
+                                                      args.dataset, 'pretrained', (str)(args.batch_size),(str)(args.epochs)
                                                   ]), 'stage1')
     else:
         args.save_path = save_path = os.path.join(args.save_path,
@@ -228,7 +228,8 @@ def main_worker(gpu, ngpus_per_node, args):
         model = simsiam_resnet32(num_classes=num_classes)
     elif args.model == 'resnet56':
         model = simsiam_resnet56(num_classes=num_classes)
-
+    elif args.model == 'resnet18':
+        model = torchvision.models.resnet18(pretrained=True, num_classes=num_classes)
     else:
         warnings.warn("Wrong model name: ", args.model)
 

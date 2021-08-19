@@ -29,19 +29,21 @@ import torchvision.models as models
 
 import simsiam.loader
 import simsiam.builder
+from dataset.imagenet_lt import ImageNet_LT
 
 model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+                     if name.islower() and not name.startswith("__")
+                     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
+parser.add_argument('--dataset', default='imagenet', type=str,help='dataset type to use')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                         ' | '.join(model_names) +
+                         ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -90,6 +92,7 @@ parser.add_argument('--pred-dim', default=512, type=int,
 parser.add_argument('--fix-pred-lr', action='store_true',
                     help='Fix learning rate for the predictor')
 
+
 def main():
     args = parser.parse_args()
 
@@ -132,6 +135,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.multiprocessing_distributed and args.gpu != 0:
         def print_pass(*args):
             pass
+
         builtins.print = print_pass
 
     if args.gpu is not None:
@@ -185,7 +189,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # AllGather implementation (batch shuffle, queue update, etc.) in
         # this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
-    print(model) # print model after SyncBatchNorm
+    print(model)  # print model after SyncBatchNorm
 
     # define loss function (criterion) and optimizer
     criterion = nn.CosineSimilarity(dim=1).cuda(args.gpu)
@@ -237,19 +241,22 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.ToTensor(),
         normalize
     ]
-
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        simsiam.loader.TwoCropsTransform(transforms.Compose(augmentation)))
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    if args.dataset == 'imagenet_lt':
+        dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers)
+        train_loader = dataset.train_instance
     else:
-        train_sampler = None
+        train_dataset = datasets.ImageFolder(
+            traindir,
+            simsiam.loader.TwoCropsTransform(transforms.Compose(augmentation)))
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -261,14 +268,13 @@ def main_worker(gpu, ngpus_per_node, args):
 
         if epoch % 10 == 0:
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                    and args.rank % ngpus_per_node == 0):
+                                                        and args.rank % ngpus_per_node == 0):
                 save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': args.arch,
                     'state_dict': model.state_dict(),
-                    'optimizer' : optimizer.state_dict(),
+                    'optimizer': optimizer.state_dict(),
                 }, is_best=False, filename='runs/checkpoint_{:04d}.pth.tar'.format(epoch))
-
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -319,6 +325,7 @@ def save_checkpoint(state, is_best, filename='runs/checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
