@@ -43,11 +43,12 @@ transform_test = transforms.Compose([
 class IMBALANCECIFAR10(torchvision.datasets.CIFAR10):
     cls_num = 10
 
-    def __init__(self, phase, imbalance_ratio, root='./data', imb_type='exp', simsiam=True, test_imb_ratio=None, reverse=False):
+    def __init__(self, phase, imbalance_ratio, head_ratio=1.0 ,root='./data', imb_type='exp', simsiam=True, test_imb_ratio=None, reverse=False):
         train = True if phase == "train" else False
 
         super(IMBALANCECIFAR10, self).__init__(root, train, transform=None, target_transform=None, download=True)
         self.train = train
+        self.head_ratio =head_ratio
         self.simsiam = simsiam
         if self.train:
             self.img_num_list = self.get_img_num_per_cls(self.cls_num, imb_type, imbalance_ratio,
@@ -86,7 +87,7 @@ class IMBALANCECIFAR10(torchvision.datasets.CIFAR10):
 
 
     def get_img_num_per_cls(self, cls_num, imb_type, imb_factor, reverse=False):
-        img_max = len(self.data) / cls_num
+        img_max = len(self.data) * self.head_ratio / cls_num
         img_num_per_cls = []
         if imb_type == 'exp':
             for cls_idx in range(cls_num):
@@ -183,11 +184,11 @@ class IMBALANCECIFAR100(IMBALANCECIFAR10):
 
 if __name__=="__main__":
 
-    # train = IMBALANCECIFAR100(phase='train', imbalance_ratio=0.1, root='./data', imb_type='exp')
-    train = datasets.CIFAR100('./data', train=True, download=True, transform=transform_train)
+    train = IMBALANCECIFAR100(phase='train', imbalance_ratio=1.0, root='./data', imb_type='exp', head_ratio=1.0)
+    # train = datasets.CIFAR100('./data', train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(train, batch_size=100, shuffle=True,
                                                num_workers=0, pin_memory=True)
-
+    print(len(train))
     for i, (input, target) in enumerate(train_loader):
-        print(i, input.shape, target)
+        # print(i, input.shape, target)
         break

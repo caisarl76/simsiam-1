@@ -70,6 +70,7 @@ parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
                     help='dataset choice')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
+parser.add_argument('--head_ratio', type=float, default=1.0, help='ratio to use on head class 1.0 for 500/5000')
 parser.add_argument('--model', metavar='ARCH', default='resnet32')
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
@@ -202,8 +203,8 @@ def main_worker(gpu, ngpus_per_node, args):
         torch.distributed.barrier()
 
     if args.dataset == 'cifar100_lt':
-        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
-                                          simsiam=True)
+        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, head_ratio=args.head_ratio,
+                                          root=args.data_dir, simsiam=True)
         num_classes = 100
     elif args.dataset == 'cifar10_lt':
         train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
