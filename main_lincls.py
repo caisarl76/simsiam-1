@@ -27,13 +27,15 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
+from dataset.imagenet_lt import ImageNet_LT
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR',
-                    help='path to dataset')
+parser.add_argument('--data_path', metavar='DIR', help='path to dataset')
+parser.add_argument('--dataset', default='imagenet', type=str, help='dataset type to use')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -256,38 +258,45 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    if args.dataset == 'imagenet':
+        traindir = os.path.join(args.data_path, 'train')
+        valdir = os.path.join(args.data_path, 'val')
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
 
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
+        train_dataset = datasets.ImageFolder(
+            traindir,
+            transforms.Compose([
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize,
+            ]))
 
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=256, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(valdir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=256, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+    elif args.dataset == 'imagenet_lt':
+        dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers,
+                              unsup=False)
+        train_loader = dataset.train_instance
+        val_loader = dataset.eval
+        train_sampler = dataset.dist_sampler
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
