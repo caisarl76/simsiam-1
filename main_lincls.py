@@ -13,7 +13,7 @@ import random
 import shutil
 import time
 import warnings
-
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -30,17 +30,18 @@ import torchvision.models as models
 from dataset.imagenet_lt import ImageNet_LT
 
 model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+                     if name.islower() and not name.startswith("__")
+                     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser.add_argument('--save_path', default='./runs', metavar='DIR', help='path to dataset')
 parser.add_argument('--data_path', metavar='DIR', help='path to dataset')
 parser.add_argument('--dataset', default='imagenet', type=str, help='dataset type to use')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                         ' | '.join(model_names) +
+                         ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -94,6 +95,18 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
+    args.save_path = save_path = os.path.join(args.pretrained, 'lincls',
+                                              ((str)(args.batch_size) + '_' + (str)(args.epochs)))
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    args.logger_file = os.path.join(args.save_path, 'log_train.txt')
+
+    handlers = [logging.FileHandler(args.logger_file, mode='w'),
+                logging.StreamHandler()]
+    logging.basicConfig(level=logging.INFO,
+                        datefmt='%m-%d-%y %H:%M',
+                        format='%(asctime)s:%(message)s',
+                        handlers=handlers)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -135,6 +148,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.multiprocessing_distributed and args.gpu != 0:
         def print_pass(*args):
             pass
+
         builtins.print = print_pass
 
     if args.gpu is not None:
@@ -166,6 +180,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.pretrained:
         if os.path.isfile(args.pretrained):
             print("=> loading checkpoint '{}'".format(args.pretrained))
+            logging.info("=> loading checkpoint '{}'".format(args.pretrained))
             checkpoint = torch.load(args.pretrained, map_location="cpu")
 
             # rename moco pre-trained keys
@@ -183,6 +198,8 @@ def main_worker(gpu, ngpus_per_node, args):
             assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
+            logging.info("=> loaded pre-trained model '{}'".format(args.pretrained))
+
         else:
             print("=> no checkpoint found at '{}'".format(args.pretrained))
 
@@ -292,6 +309,7 @@ def main_worker(gpu, ngpus_per_node, args):
             batch_size=256, shuffle=False,
             num_workers=args.workers, pin_memory=True)
     elif args.dataset == 'imagenet_lt':
+        logging.info('%s dataset loaded' % (args.dataset))
         dataset = ImageNet_LT(args.distributed, root=args.data_path, batch_size=args.batch_size, num_works=args.workers,
                               unsup=False)
         train_loader = dataset.train_instance
@@ -311,23 +329,27 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1, loss = validate(val_loader, model, criterion, args)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
-
+        logging.info("Epoch: [{0}]\t"
+                     "Loss {loss})\t"
+                     "Prec@1 {top1:.3f})\t".format(epoch, loss=loss, top1=acc1)
+                     )
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
+                                                    and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
             }, is_best)
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained)
+    logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -423,7 +445,7 @@ def validate(val_loader, model, criterion, args):
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
 
-    return top1.avg
+    return top1.avg, losses.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
@@ -458,6 +480,7 @@ def sanity_check(state_dict, pretrained_weights):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
