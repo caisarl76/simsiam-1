@@ -23,6 +23,7 @@ import torch.optim
 import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
+from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
@@ -141,6 +142,7 @@ def main():
 
 
 def main_worker(gpu, ngpus_per_node, args):
+    writer = SummaryWriter(os.path.join(args.save_path, 'logs'))
     global best_acc1
     args.gpu = gpu
 
@@ -317,7 +319,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = dataset.dist_sampler
 
     if args.evaluate:
-        validate(val_loader, model, criterion, args)
+        validate(val_loader, model, criterion, args, writer)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -326,7 +328,7 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, init_lr, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, epoch, args, writer)
 
         # evaluate on validation set
         acc1, loss = validate(val_loader, model, criterion, args)
@@ -338,6 +340,8 @@ def main_worker(gpu, ngpus_per_node, args):
                      "Loss {loss})\t"
                      "Prec@1 {top1:.3f})\t".format(epoch, loss=loss, top1=acc1)
                      )
+        writer.add_scalar('val loss', loss, epoch)
+        writer.add_scalar('val acc', acc1, epoch)
         if epoch % 10 == 0:
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                         and args.rank % ngpus_per_node == 0):
@@ -351,9 +355,10 @@ def main_worker(gpu, ngpus_per_node, args):
             if epoch == args.start_epoch:
                 sanity_check(model.state_dict(), args.pretrained)
     logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
+    writer.close()
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -403,9 +408,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+    writer.add_scalar('train loss', losses.avg, epoch)
+    writer.add_scalar('train acc', top1.avg, epoch)
 
-
-def validate(val_loader, model, criterion, args):
+def validate(val_loader, model, criterion, args, writer):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
