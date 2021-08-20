@@ -361,7 +361,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     'best_acc1': best_acc1,
                     'optimizer': optimizer.state_dict(),
                 }, is_best=is_best, filename=os.path.join(args.save_path, 'checkpoint_{:04d}.pth.tar'.format(epoch)))
-            if epoch == args.start_epoch:
+            if epoch == args.start_epoch and args.supervised ==0:
                 sanity_check(model.state_dict(), args.pretrained)
     logging.info("Best Prec@1 {top1:.3f}".format(top1=best_acc1))
     writer.close()
