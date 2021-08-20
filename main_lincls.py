@@ -88,6 +88,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 # additional configs:
 parser.add_argument('--pretrained', default='', type=str,
                     help='path to simsiam pretrained checkpoint')
+parser.add_argument('--supervised', type=int, default=0)
 parser.add_argument('--lars', action='store_true',
                     help='Use LARS')
 
@@ -96,8 +97,12 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
+    if args.supervised == 0:
+        stage2_fol = 'lincls'
+    else:
+        stage2_fol = 'finetune'
     args.save_path = save_path = os.path.join(
-        args.pretrained.split('checkpoint')[0], 'lincls',
+        args.pretrained.split('checkpoint')[0], stage2_fol,
         ((str)(args.batch_size) + '_' + (str)(args.epochs)))
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -172,9 +177,10 @@ def main_worker(gpu, ngpus_per_node, args):
     model = models.__dict__[args.arch]()
 
     # freeze all layers but the last fc
-    for name, param in model.named_parameters():
-        if name not in ['fc.weight', 'fc.bias']:
-            param.requires_grad = False
+    if args.supervised == 0:
+        for name, param in model.named_parameters():
+            if name not in ['fc.weight', 'fc.bias']:
+                param.requires_grad = False
     # init the fc layer
     model.fc.weight.data.normal_(mean=0.0, std=0.01)
     model.fc.bias.data.zero_()
@@ -198,7 +204,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
             args.start_epoch = 0
             msg = model.load_state_dict(state_dict, strict=False)
-            assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
+            if args.supervised == 0:
+                assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
 
             print("=> loaded pre-trained model '{}'".format(args.pretrained))
             logging.info("=> loaded pre-trained model '{}'".format(args.pretrained))
@@ -243,7 +250,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # optimize only the linear classifier
     parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
-    assert len(parameters) == 2  # fc.weight, fc.bias
+    if args.supervised == 0:
+        assert len(parameters) == 2  # fc.weight, fc.bias
 
     optimizer = torch.optim.SGD(parameters, init_lr,
                                 momentum=args.momentum,
@@ -377,7 +385,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     BatchNorm in train mode may revise running mean/std (even if it receives
     no gradient), which are part of the model parameters too.
     """
-    model.eval()
+    if args.supervised == 0:
+        model.eval()
+    else:
+        model.train()
 
     end = time.time()
     for i, (images, target) in enumerate(train_loader):
