@@ -542,7 +542,8 @@ class ProgressMeter(object):
 
 def adjust_learning_rate(optimizer, init_lr, epoch, args):
     """Decay the learning rate based on schedule"""
-    cur_lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+    # cur_lr = init_lr * 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
+    cur_lr = init_lr * 0.25 * (3. + math.cos(math.pi * epoch / args.epochs))
     for param_group in optimizer.param_groups:
         param_group['lr'] = cur_lr
 
