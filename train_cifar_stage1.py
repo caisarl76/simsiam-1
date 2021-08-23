@@ -32,7 +32,7 @@ import torchvision.models as models
 import simsiam.loader
 import simsiam.builder
 from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
-from dataset.cifar10_pair import CIFAR10Pair
+from dataset.cifar_pair import CIFAR10Pair, CIFAR100Pair
 from simsiam.builder import simsiam_resnet32, simsiam_resnet56
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -221,6 +221,17 @@ def main_worker(gpu, ngpus_per_node, args):
 
         train_dataset = CIFAR10Pair(root='data', train=True, transform=train_transform, download=True)
         num_classes = 10
+    elif args.dataset == 'cifar100':
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(32, scale=(0.2, 1.)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])])
+
+        train_dataset = CIFAR100Pair(root='data', train=True, transform=train_transform, download=True)
+        num_classes = 100
     else:
         warnings.warn("Wrong dataset name: ", args.dataset)
 

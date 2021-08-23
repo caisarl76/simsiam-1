@@ -95,6 +95,8 @@ parser.add_argument('--lars', action='store_true',
 best_acc1 = 0
 
 
+
+
 def main():
     args = parser.parse_args()
     if args.supervised == 0:
