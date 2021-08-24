@@ -1,20 +1,12 @@
-#!/usr/bin/env python
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 import argparse
 import logging
-import builtins
+import json
 import math
 import os
 import random
 import shutil
 import time
 import warnings
-import pickle
 
 import torch
 import torch.nn as nn
@@ -32,25 +24,11 @@ import torchvision.models as models
 
 import simsiam.loader
 import simsiam.builder
-from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
-from dataset.cifar_pair import CIFAR10Pair, CIFAR100Pair
+from dataset.cifar_mini import IMBALANCECIFAR10, IMBALANCECIFAR100
 from simsiam.builder import simsiam_resnet32, simsiam_resnet56
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
-
-# MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
-augmentation = [
-    transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
-    transforms.RandomApply([
-        transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
-    ], p=0.8),
-    transforms.RandomGrayscale(p=0.2),
-    transforms.RandomApply([simsiam.loader.GaussianBlur([.1, 2.])], p=0.5),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    normalize
-]
 
 augmentation_cifar = [
     transforms.RandomResizedCrop(32, scale=(0.2, 1.)),
@@ -61,7 +39,7 @@ augmentation_cifar = [
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     normalize
-    ]
+]
 
 parser = argparse.ArgumentParser(description='PyTorch simsiam-cifar Training')
 parser.add_argument('--data-dir', default='./data', type=str,
@@ -129,13 +107,15 @@ def main():
     if 'lt' not in args.dataset:
         args.save_path = save_path = os.path.join(args.save_path,
                                                   '_'.join([
-                                                      args.dataset, (str)(args.head_ratio), (str)(args.batch_size),(str)(args.epochs)
+                                                      args.dataset, 'pretrained', (str)(args.batch_size),
+                                                      (str)(args.epochs)
                                                   ]), 'stage1')
     else:
         args.save_path = save_path = os.path.join(args.save_path,
-            '_'.join([
-            args.dataset, (str)(args.imb_ratio), (str)(args.head_ratio), (str)(args.batch_size), (str)(args.epochs)
-        ]), 'stage1')
+                                                  '_'.join([
+                                                      args.dataset, (str)(args.imb_ratio), (str)(args.head_ratio),
+                                                      (str)(args.batch_size), (str)(args.epochs)
+                                                  ]), 'stage1')
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -160,72 +140,36 @@ def main():
     if args.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
-    if args.dist_url == "env://" and args.world_size == -1:
-        args.world_size = int(os.environ["WORLD_SIZE"])
-
-    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
 
     ngpus_per_node = torch.cuda.device_count()
 
-    if args.multiprocessing_distributed:
-        # Since we have ngpus_per_node processes per node, the total world_size
-        # needs to be adjusted accordingly
-        args.world_size = ngpus_per_node * args.world_size
-        # Use torch.multiprocessing.spawn to launch distributed processes: the
-        # main_worker process function
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
-    else:
-        # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+    main_worker(args.gpu, ngpus_per_node, args)
 
 
 def main_worker(gpu, ngpus_per_node, args):
     args.gpu = gpu
 
     # suppress printing if not master
-    if args.multiprocessing_distributed and args.gpu != 0:
-        def print_pass(*args):
-            pass
-
-        builtins.print = print_pass
-
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
 
-    if args.distributed:
-        if args.dist_url == "env://" and args.rank == -1:
-            args.rank = int(os.environ["RANK"])
-        if args.multiprocessing_distributed:
-            # For multiprocessing distributed training, rank needs to be the
-            # global rank among all the processes
-            args.rank = args.rank * ngpus_per_node + gpu
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size, rank=args.rank)
-        torch.distributed.barrier()
-
-    if args.dataset == 'cifar100_lt':
-        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, head_ratio=args.head_ratio,
-                                          root=args.data_dir, simsiam=True)
-        num_classes = 100
-    elif args.dataset == 'cifar10_lt':
-        train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
-                                          simsiam=True)
+    if args.dataset == 'cifar10_lt':
+        train_dataset = IMBALANCECIFAR10(root='data', train=True, imb_factor=args.imb_ratio, simsiam=True)
         num_classes = 10
     elif args.dataset == 'cifar10':
-        train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=1.0, head_ratio=args.head_ratio,
-                                         root=args.data_dir, simsiam=True)
+        train_dataset = IMBALANCECIFAR10(root='data', train=True, imb_factor=1.0, head_ratio=args.head_ratio,
+                                         simsiam=True)
         num_classes = 10
+    elif args.dataset == 'cifar100_lt':
+        train_dataset = IMBALANCECIFAR100(root='data', train=True, imb_factor=args.imb_ratio, simsiam=True)
+        num_classes = 100
+
     elif args.dataset == 'cifar100':
-        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=1.0, head_ratio=args.head_ratio,
-                                         root=args.data_dir, simsiam=True)
+        train_dataset = IMBALANCECIFAR100(root='data', train=True, imb_factor=1.0, head_ratio=args.head_ratio,
+                                          simsiam=True)
         num_classes = 100
     else:
         warnings.warn("Wrong dataset name: ", args.dataset)
-    if args.head_ratio != 1.0:
-        data_path = os.path.join(args.save_path, 'dataset.pkl')
-        with open(data_path, 'wb') as f:
-            pickle.dump(train_dataset, f, pickle.HIGHEST_PROTOCOL)
-
 
     if args.model == 'resnet32':
         model = simsiam_resnet32(num_classes=num_classes)
@@ -237,50 +181,25 @@ def main_worker(gpu, ngpus_per_node, args):
         warnings.warn("Wrong model name: ", args.model)
 
     init_lr = args.lr * args.batch_size / 256
-
-
-    if args.distributed:
-        # Apply SyncBN
-        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        # For multiprocessing distributed, DistributedDataParallel constructor
-        # should always set the single device scope, otherwise,
-        # DistributedDataParallel will use all available devices.
-        if args.gpu is not None:
-            torch.cuda.set_device(args.gpu)
-            model.cuda(args.gpu)
-            # When using a single GPU per process and per
-            # DistributedDataParallel, we need to divide the batch size
-            # ourselves based on the total number of GPUs we have
-            args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        else:
-            model.cuda()
-            # DistributedDataParallel will divide and allocate batch_size to all
-            # available GPUs if device_ids are not set
-            model = torch.nn.parallel.DistributedDataParallel(model)
-    elif args.gpu is not None:
+    if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
         # comment out the following line for debugging
         # raise NotImplementedError("Only DistributedDataParallel is supported.")
     else:
-    # AllGather implementation (batch shuffle, queue update, etc.) in
-    # this code only supports DistributedDataParallel.
+        # AllGather implementation (batch shuffle, queue update, etc.) in
+        # this code only supports DistributedDataParallel.
         raise NotImplementedError("Only DistributedDataParallel is supported.")
 
     logging.info("=> creating model '{}'".format(args.model))
     print(model)  # print model after SyncBatchNorm
 
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
-
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                               batch_size=args.batch_size,
+                                               shuffle=True,
+                                               num_workers=args.workers,
+                                               pin_memory=True,
+                                               drop_last=True)
     criterion = nn.CosineSimilarity(dim=1).cuda(args.gpu)
 
     if args.fix_pred_lr:
@@ -294,6 +213,7 @@ def main_worker(gpu, ngpus_per_node, args):
     optimizer = torch.optim.SGD(optim_params, init_lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
+
     if args.resume:
         if os.path.exists(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
@@ -312,12 +232,9 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, init_lr, epoch, args)
-
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        simsiam_train(train_loader, model, criterion, optimizer, epoch, args)
         if epoch % 50 == 0:
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                                                         and args.rank % ngpus_per_node == 0):
@@ -328,15 +245,47 @@ def main_worker(gpu, ngpus_per_node, args):
                     'optimizer': optimizer.state_dict(),
                 }, is_best=False, filename=os.path.join(args.save_path, 'checkpoint_{:04d}.pth.tar'.format(epoch)))
 
-                save_checkpoint({
-                    'epoch': epoch + 1,
-                    'arch': args.model,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }, is_best=False, filename=os.path.join(args.save_path, 'checkpoint_last.pth.tar'.format(epoch)))
+    save_checkpoint({
+        'epoch': epoch + 1,
+        'arch': args.model,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+    }, is_best=False, filename=os.path.join(args.save_path, 'checkpoint_last.pth.tar'.format(epoch)))
+
+    ######################################################################
+    ##################### now part 2 #####################################
+    ######################################################################
+
+    train_dataset.simsiam = False
+    if args.supervised == 1:
+        print('train with supervised')
+        stage2_fol = 'super'
+    else:
+        print('train with supervised')
+        stage2_fol = 'unsup'
+
+    args.save_path = os.path.join(args.save_path.replace('stage1', 'stage2'), stage2_fol)
+
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path, exist_ok=True)
+
+    args.logger_file = os.path.join(args.save_path, 'log_train.txt')
+    handlers = [logging.FileHandler(args.logger_file, mode='w'),
+                logging.StreamHandler()]
+    logging.basicConfig(level=logging.INFO,
+                        datefmt='%m-%d-%y %H:%M',
+                        format='%(asctime)s:%(message)s',
+                        handlers=handlers)
+    logging.info('start training stage2: {}'.format(stage2_fol))
+
+    with open(os.path.join(args.save_path, 'args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+
+
+
+def simsiam_train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4f')
@@ -377,6 +326,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
                  "Loss {loss})\t".format(
         epoch,
         loss=losses.avg,))
+
 
 
 def save_checkpoint(state, is_best, filename='runs/checkpoint.pth.tar'):

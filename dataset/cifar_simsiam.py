@@ -43,7 +43,7 @@ transform_test = transforms.Compose([
 class IMBALANCECIFAR10(torchvision.datasets.CIFAR10):
     cls_num = 10
 
-    def __init__(self, phase, imbalance_ratio, head_ratio=1.0 ,root='./data', imb_type='exp', simsiam=True, test_imb_ratio=None, reverse=False):
+    def __init__(self, phase, imbalance_ratio, head_ratio=1.0 ,root='./data', imb_type='exp', simsiam=False, test_imb_ratio=None, reverse=False):
         train = True if phase == "train" else False
 
         super(IMBALANCECIFAR10, self).__init__(root, train, transform=None, target_transform=None, download=True)

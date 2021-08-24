@@ -15,6 +15,7 @@ import time
 import warnings
 import logging
 import json
+import pickle
 
 import torch
 import torch.nn as nn
@@ -53,6 +54,7 @@ parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
                     help='dataset choice')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
+parser.add_argument('--head_ratio', type=float, default=1.0, help='ratio to use on head class 1.0 for 500/5000')
 parser.add_argument('--model', metavar='ARCH', default='resnet32')
 parser.add_argument('--loss_type', type=str, default='CE')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -198,24 +200,46 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cls_num_list = None
     if args.dataset == 'cifar100_lt':
-        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
-                                          simsiam=False)
+        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, head_ratio=args.head_ratio,
+                                          root=args.data_dir, simsiam=False)
         cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = torchvision.datasets.CIFAR100(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 100
     elif args.dataset == 'cifar10_lt':
         train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=args.imb_ratio, root=args.data_dir,
-                                         simsiam=False)
+                                          simsiam=False)
         cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 10
     elif args.dataset == 'cifar10':
-        train_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=True, transform=train_transform)
-        cls_num_list = [5000]*10
+        train_dataset = IMBALANCECIFAR10(phase='train', imbalance_ratio=1.0, head_ratio=args.head_ratio,
+                                         root=args.data_dir)
+        cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = torchvision.datasets.CIFAR10(root=args.data_dir, train=False, transform=val_transform)
         num_classes = 10
+    elif args.dataset == 'cifar100':
+        train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=1.0, head_ratio=args.head_ratio,
+                                         root=args.data_dir)
+        cls_num_list = train_dataset.get_cls_num_list()
+        val_dataset = torchvision.datasets.CIFAR100(root=args.data_dir, train=False, transform=val_transform)
+        num_classes = 100
     else:
         warnings.warn("Wrong dataset name: ", args.dataset)
+
+    if args.head_ratio != 1.0:
+        data_path = os.path.join(args.pretrained.split('checkpoint')[0], 'dataset.pkl')
+        if os.path.exists(data_path):
+            with open(data_path, 'rb') as f:
+                train_dataset = pickle.load(f)
+                train_dataset.simsiam = False
+            print(len(train_dataset))
+            print(len(val_dataset))
+        elif 'scratch' in args.pretrained:
+            print('no dataset found! ')
+        else:
+            warnings.warn('wrong pretrained path', args.pretrained)
+            return
+
 
     if args.model == 'resnet32':
         model = resnet32(num_classes=num_classes)
