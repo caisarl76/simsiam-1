@@ -68,12 +68,11 @@ def main():
         print('wrong path', args.pretrained)
         return
 
-    weight_key = 'module.linear.weight' if args.module else 'linear.weight'
-    bias_key = 'module.linear.bias' if args.module else 'linear.bias'
-    weights = checkpoint['state_dict'][weight_key].cpu()
-    bias = checkpoint['state_dict'][bias_key].cpu()
-
     if args.tau:
+        weight_key = 'module.linear.weight' if args.module else 'linear.weight'
+        bias_key = 'module.linear.bias' if args.module else 'linear.bias'
+        weights = checkpoint['state_dict'][weight_key].cpu()
+        bias = checkpoint['state_dict'][bias_key].cpu()
         ws = pnorm(weights, p=args.tau)
         bs = bias * 0
         checkpoint['state_dict'][weight_key] = ws
