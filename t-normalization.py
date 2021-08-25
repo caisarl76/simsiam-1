@@ -10,6 +10,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from simsiam.resnet_cifar import resnet32, resnet56
+from dataset.cifar_simsiam import IMBALANCECIFAR10, IMBALANCECIFAR100
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data-dir', default='./data', type=str,
@@ -43,6 +44,7 @@ head_class_idx = [0, 36]
 med_class_idx = [36, 71]
 tail_class_idx = [71, 100]
 
+
 def main():
     args = parser.parse_args()
     args.save_path = save_path = args.pretrained.split('model_best')[0]
@@ -74,8 +76,6 @@ def main():
     weights = checkpoint['state_dict'][weight_key].cpu()
     bias = checkpoint['state_dict'][bias_key].cpu()
 
-
-
     if args.tau:
         ws = pnorm(weights, p=args.tau)
         bs = bias * 0
@@ -84,14 +84,17 @@ def main():
 
     # torch.save(checkpoint, os.path.join(save_path, 't_normed_model.pth.tar'))
 
-    if args.dataset == 'cifar100_lt':
-        val_dataset = torchvision.datasets.CIFAR100(root=args.data_dir,
-                                                    train=False,
-                                                    transform=
-                                                    transforms.Compose([
-                                                        transforms.ToTensor(),
-                                                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                                                    ]))
+    if args.dataset == 'cifar10':
+        val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
+        num_classes = 10
+    elif args.dataset == 'cifar10_lt':
+        val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
+        num_classes = 10
+    elif args.dataset == 'cifar100':
+        val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
+        num_classes = 100
+    elif args.dataset == 'cifar100_lt':
+        val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
         num_classes = 100
 
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
@@ -120,7 +123,6 @@ def main():
     model.load_state_dict(state_dict, strict=False)
 
     validate(args, val_loader, model, criterion)
-
 
 
 def validate(args, val_loader, model, criterion):
@@ -183,8 +185,10 @@ def pnorm(weights, p):
         ws[i] = ws[i] / torch.pow(normB[i], p)
     return ws
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
@@ -206,6 +210,7 @@ class AverageMeter(object):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
 
+
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -221,6 +226,7 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+
 
 if __name__ == '__main__':
     main()
