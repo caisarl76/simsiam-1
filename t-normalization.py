@@ -61,8 +61,8 @@ def main():
         json.dump(args.__dict__, f, indent=2)
 
     if os.path.isfile(args.pretrained):
-        # print("=> loading checkpoint '{}'".format(args.pretrained))
-        # logging.info("=> loading checkpoint '{}'".format(args.pretrained))
+        print("=> loading checkpoint '{}'".format(args.pretrained))
+        logging.info("=> loading checkpoint '{}'".format(args.pretrained))
         checkpoint = torch.load(args.pretrained, map_location="cpu")
     else:
         print('wrong path', args.pretrained)
