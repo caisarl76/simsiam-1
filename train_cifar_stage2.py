@@ -200,7 +200,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cls_num_list = None
     if args.dataset.endswith('_part'):
-        args.dataset = args.dataset.split('_part')
+        args.dataset = args.dataset.split('_part')[0]
         args.head_ratio = 0.4
 
     if args.dataset == 'cifar100_lt':
