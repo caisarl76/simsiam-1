@@ -138,8 +138,8 @@ def validate(args, val_loader, model, criterion):
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
-    class_num = torch.zeros(100).cuda()
-    correct = torch.zeros(100).cuda()
+    class_num = torch.zeros(num_classes).cuda()
+    correct = torch.zeros(num_classes).cuda()
 
     confidence = np.array([])
     pred_class = np.array([])
