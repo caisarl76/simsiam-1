@@ -15,7 +15,7 @@ import time
 import warnings
 import logging
 import json
-import pickle5 as pickle
+import pickle
 
 import torch
 import torch.nn as nn
@@ -250,11 +250,6 @@ def main_worker(gpu, ngpus_per_node, args):
             print(len(val_dataset))
         elif 'scratch' in args.pretrained:
             print('no dataset found! ')
-
-
-
-
-
 
     if args.model == 'resnet32':
         model = resnet32(num_classes=num_classes)
