@@ -119,8 +119,8 @@ def main():
     else:
         print('train with supervised')
         stage2_fol = 'unsup'
-    args.save_path = save_path = os.path.join(args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol),
-                                              args.loss_type, ((str)(args.epochs) + '_' + (str)(args.lr) + '_' + args.lr_sche))
+    args.save_path = save_path = os.path.join(args.pretrained.split('checkpoint')[0].replace('stage1', stage2_fol), args.dataset,
+                                              (args.loss_type, (str)(args.epochs) + '_' + (str)(args.lr) + '_' + args.lr_sche))
     print(args.save_path, save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
