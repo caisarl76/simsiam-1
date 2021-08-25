@@ -15,7 +15,7 @@ import time
 import warnings
 import logging
 import json
-import pickle
+import pickle5 as pickle
 
 import torch
 import torch.nn as nn
