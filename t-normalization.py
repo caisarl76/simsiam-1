@@ -40,9 +40,6 @@ parser.add_argument('--module', action='store_true')
 
 best_acc1 = 0
 
-head_class_idx = [0, 36]
-med_class_idx = [36, 71]
-tail_class_idx = [71, 100]
 
 
 def main():
@@ -96,6 +93,17 @@ def main():
     elif args.dataset == 'cifar100_lt':
         val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
         num_classes = 100
+    global head_class_idx
+    global med_class_idx
+    global tail_class_idx
+    if args.dataset.startswith('cifar100'):
+        head_class_idx = [0, 36]
+        med_class_idx = [36, 71]
+        tail_class_idx = [71, 100]
+    elif args.dataset.startswith('cifar10'):
+        head_class_idx = [0, 3]
+        med_class_idx = [3, 7]
+        tail_class_idx = [7, 10]
 
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
                                              num_workers=args.workers, pin_memory=True)
