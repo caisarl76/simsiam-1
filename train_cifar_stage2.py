@@ -240,6 +240,19 @@ def main_worker(gpu, ngpus_per_node, args):
             print(len(val_dataset))
         elif 'scratch' in args.pretrained:
             print('no dataset found! ')
+    elif '_lt' in args.dataset:
+        data_path = os.path.join(args.pretrained.split('checkpoint')[0], 'dataset.pkl')
+        if os.path.exists(data_path):
+            with open(data_path, 'rb') as f:
+                train_dataset = pickle.load(f)
+                train_dataset.simsiam = False
+            print(len(train_dataset))
+            print(len(val_dataset))
+        elif 'scratch' in args.pretrained:
+            print('no dataset found! ')
+
+
+
 
 
 
