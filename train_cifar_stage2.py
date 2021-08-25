@@ -199,6 +199,10 @@ def main_worker(gpu, ngpus_per_node, args):
     writer = SummaryWriter(os.path.join(args.save_path, 'logs'))
 
     cls_num_list = None
+    if args.dataset.endswith('_part'):
+        args.dataset = args.dataset.split('_part')
+        args.head_ratio = 0.4
+
     if args.dataset == 'cifar100_lt':
         train_dataset = IMBALANCECIFAR100(phase='train', imbalance_ratio=args.imb_ratio, head_ratio=args.head_ratio,
                                           root=args.data_dir, simsiam=False)
