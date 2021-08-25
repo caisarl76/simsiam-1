@@ -242,7 +242,7 @@ def main_worker(gpu, ngpus_per_node, args):
             print('no dataset found! ')
         else:
             warnings.warn('wrong pretrained path', args.pretrained)
-            return
+            # return
 
 
     if args.model == 'resnet32':
