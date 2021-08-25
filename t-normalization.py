@@ -80,7 +80,7 @@ def main():
         checkpoint['state_dict'][bias_key] = bs
 
     # torch.save(checkpoint, os.path.join(save_path, 't_normed_model.pth.tar'))
-
+    global num_classes
     if args.dataset == 'cifar10':
         val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
         num_classes = 10
@@ -93,6 +93,7 @@ def main():
     elif args.dataset == 'cifar100_lt':
         val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
         num_classes = 100
+
     global head_class_idx
     global med_class_idx
     global tail_class_idx
@@ -166,8 +167,8 @@ def validate(args, val_loader, model, criterion):
             top5.update(acc5[0], images.size(0))
 
             _, predicted = output.max(1)
-            target_one_hot = F.one_hot(target, 100)
-            predict_one_hot = F.one_hot(predicted, 100)
+            target_one_hot = F.one_hot(target, num_classes)
+            predict_one_hot = F.one_hot(predicted, num_classes)
             class_num = class_num + target_one_hot.sum(dim=0).to(torch.float)
             correct = correct + (target_one_hot + predict_one_hot == 2).sum(dim=0).to(torch.float)
 
