@@ -240,9 +240,7 @@ def main_worker(gpu, ngpus_per_node, args):
             print(len(val_dataset))
         elif 'scratch' in args.pretrained:
             print('no dataset found! ')
-        else:
-            warnings.warn('wrong pretrained path', args.pretrained)
-            # return
+
 
 
     if args.model == 'resnet32':
