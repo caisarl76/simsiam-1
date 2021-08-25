@@ -16,7 +16,6 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data-dir', default='./data', type=str,
                     help='the diretory to save cifar100 dataset')
 parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
-                    choices=['cifar10', 'cifar100', 'cifar10_lt', 'cifar100_lt', 'imagenet_lt'],
                     help='dataset choice')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
@@ -62,7 +61,7 @@ def main():
 
     if os.path.isfile(args.pretrained):
         print("=> loading checkpoint '{}'".format(args.pretrained))
-        logging.info("=> loading checkpoint '{}'".format(args.pretrained))
+        # logging.info("=> loading checkpoint '{}'".format(args.pretrained))
         checkpoint = torch.load(args.pretrained, map_location="cpu")
     else:
         print('wrong path', args.pretrained)
@@ -80,31 +79,24 @@ def main():
 
     # torch.save(checkpoint, os.path.join(save_path, 't_normed_model.pth.tar'))
     global num_classes
-    if args.dataset == 'cifar10':
-        val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
-        num_classes = 10
-    elif args.dataset == 'cifar10_lt':
-        val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
-        num_classes = 10
-    elif args.dataset == 'cifar100':
-        val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
-        num_classes = 100
-    elif args.dataset == 'cifar100_lt':
-        val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=args.imb_ratio, root=args.data_dir, simsiam=False)
-        num_classes = 100
-
     global head_class_idx
     global med_class_idx
     global tail_class_idx
+
     if args.dataset.startswith('cifar100'):
+        val_dataset = IMBALANCECIFAR100(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
+        num_classes = 100
         head_class_idx = [0, 36]
         med_class_idx = [36, 71]
         tail_class_idx = [71, 100]
     elif args.dataset.startswith('cifar10'):
+        val_dataset = IMBALANCECIFAR10(phase='test', imbalance_ratio=1.0, root=args.data_dir, simsiam=False)
+        num_classes = 10
         head_class_idx = [0, 3]
         med_class_idx = [3, 7]
         tail_class_idx = [7, 10]
 
+    # print(head_class_idx, med_class_idx, tail_class_idx)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
                                              num_workers=args.workers, pin_memory=True)
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
@@ -120,13 +112,13 @@ def main():
         warnings.warn("Wrong model name: ", args.model)
 
     state_dict = checkpoint['state_dict']
-    for k in list(state_dict.keys()):
-        if k.startswith('module'):
-            # remove prefix
-            # state_dict[k[len("module.encoder."):]] = state_dict[k]
-            state_dict[k[len("module."):]] = state_dict[k]
-        # delete renamed or unused k
-        del state_dict[k]
+    # for k in list(state_dict.keys()):
+    #     if k.startswith('module'):
+    #         # remove prefix
+    #         # state_dict[k[len("module.encoder."):]] = state_dict[k]
+    #         state_dict[k[len("module."):]] = state_dict[k]
+    #     # delete renamed or unused k
+    #     del state_dict[k]
 
     model.load_state_dict(state_dict, strict=False)
 
