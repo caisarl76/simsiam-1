@@ -105,7 +105,7 @@ def main():
         stage2_fol = 'finetune'
     hyperparam = '_'.join([(str)(args.batch_size), (str)(args.epochs), (str)(args.lr)])
     args.save_path = save_path = os.path.join(
-        args.pretrained.split('checkpoint')[0], stage2_fol, hyperparam)
+        args.pretrained.split('checkpoint')[0], args.dataset, stage2_fol, hyperparam)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.logger_file = os.path.join(args.save_path, 'log_train.txt')

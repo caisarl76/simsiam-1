@@ -68,7 +68,6 @@ parser = argparse.ArgumentParser(description='PyTorch simsiam-cifar Training')
 parser.add_argument('--data-dir', default='./data', type=str,
                     help='the diretory to save cifar100 dataset')
 parser.add_argument('--dataset', '-d', type=str, default='cifar100_lt',
-                    choices=['cifar10', 'cifar100', 'cifar10_lt', 'cifar100_lt', 'imagenet_lt'],
                     help='dataset choice')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_ratio', type=float, default=0.1, help='dataset imbalacen ratio')
